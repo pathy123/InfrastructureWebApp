@@ -1,0 +1,41 @@
+name: $(BuildDefinitionName)$(SourceBranchName)$(date:yyyyMMdd)$(rev:.r)
+
+trigger:
+  branches:
+    include:
+    - master
+
+variables: # terraform variables
+  ServiceConnectionName: 'Azure-spn'
+
+pool:
+  vmImage: ubuntu-latest # This is the default if you don't specify a pool or vmImage.
+  
+stages:
+
+  - stage: Deployment_dev
+    displayName: Dev-deployment
+    variables:
+      - group: Terraformvariable
+    jobs:
+      - template: Terraform/deploy.yml
+        parameters:
+            env: dev
+            stage: Dev
+            ARM_TENANT_ID: $(tenant_id)
+            ARM_CLIENT_ID: $(client_id)
+            ARM_CLIENT_SECRET: $(client_secret)
+
+  - stage: Deployment_Prod
+    displayName: Prod-deployment
+    variables:
+      - group: Terraformvariable
+    jobs:
+      - template: Terraform/deploy.yml
+        parameters:
+            env: prod
+            Stage: Prod
+            ARM_TENANT_ID: $(tenant_id)
+            ARM_CLIENT_ID: $(client_id)
+            ARM_CLIENT_SECRET: $(client_secret)
+

@@ -1,0 +1,50 @@
+parameters:
+  env: ''
+  stage: ''
+
+jobs:
+  - job: 'InfraDeployment_${{parameters.stage}}'
+    displayName: 'Validate ${{parameters.env}} terraform scripts and deploy'
+    pool:
+        vmImage: ubuntu-latest
+
+    steps: 
+    # Install Terraform in the agent
+
+      - task: AzureCLI@2
+        displayName: 'Prepare Credentials'
+        inputs:
+          azureSubscription: 'Azure subscription 1(9c054055-8ba1-4842-8ceb-3a8b8a12642f)'
+          scriptLocation: 'inlineScript'
+          scriptType: 'bash'
+          inlineScript: |
+                      
+                        echo "##vso[task.setvariable variable=AZURE_CLIENT_ID;issecret=true]${servicePrincipalId}"
+                        echo "##vso[task.setvariable variable=AZURE_CLIENT_SECRET;issecret=true]${servicePrincipalKey}"
+                        echo "##vso[task.setvariable variable=AZURE_SUBSCRIPTION_ID;issecret=true]$(az account show --query 'id' -o tsv)"
+                        echo "##vso[task.setvariable variable=AZURE_TENANT_ID;issecret=true]${tenantId}"
+
+      - task: Bash@3
+        displayName: 'Install Terraform'
+        inputs:
+          targetType: 'inline'
+          script: |
+                    wget https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_linux_amd64.zip
+                    unzip terraform_1.7.5_linux_amd64.zip
+                    sudo mv terraform /usr/local/bin
+                    terraform --version
+
+        # Run terrform init and plan 
+      - task: Bash@3
+        displayName: 'Terraform plan and deployment'
+        env:
+            ARM_CLIENT_ID: $(AZURE_CLIENT_ID)
+            ARM_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
+            ARM_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+            ARM_TENANT_ID: $(AZURE_TENANT_ID)
+        inputs: 
+          targetType: inline
+          script: |
+                      terraform init -upgrade
+                      terraform plan -out=terraform.tfplan
+                      terraform apply --var-file='$(env).tfvars' "terraform.tfplan"
